@@ -6,19 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "langgraph>=1.2.14",
-    "matplotlib>=3.11.2",
-    "numpy>=2.5.3",
     "ollama>=0.6.3",
-    "pandas>=3.0.6",
     "pytest>=9.1.1",
-    "scikit-learn>=1.9.1",
 ]
 
 [dependency-groups]
-dev = [
-    "ipykernel>=7.4.0",
-    "jupyter>=1.1.1",
-]
+dev = []
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
