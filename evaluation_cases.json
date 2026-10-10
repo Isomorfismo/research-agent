@@ -1,0 +1,111 @@
+[
+  {
+    "id": "sales_drop_and_inventory",
+    "question": "Analiza las ventas de PROD-001 de los dos últimos meses y consulta su inventario. No inventes causas.",
+    "expected_facts": [
+      [
+        "2026-08",
+        "agosto"
+      ],
+      [
+        "2026-09",
+        "septiembre"
+      ],
+      [
+        "-40",
+        "disminución del 40%",
+        "disminución del 40 por ciento",
+        "han disminuido un 40%",
+        "disminuyeron un 40%"
+      ],
+      [
+        "10000",
+        "10.000"
+      ],
+      [
+        "6000",
+        "6.000"
+      ],
+      [
+        "120"
+      ],
+      [
+        "100"
+      ]
+    ]
+  },
+  {
+    "id": "sales_growth_and_low_stock",
+    "question": "Analiza las ventas de PROD-002 de los dos últimos meses y comprueba si el inventario está por debajo del mínimo.",
+    "expected_facts": [
+      [
+        "4500",
+        "4.500"
+      ],
+      [
+        "4800",
+        "4.800"
+      ],
+      [
+        "6.67",
+        "6,67"
+      ],
+      [
+        "45"
+      ],
+      [
+        "50"
+      ],
+      [
+        "below_minimum",
+        "por debajo del mínimo",
+        "por debajo del nivel mínimo"
+      ]
+    ]
+  },
+  {
+    "id": "out_of_scope_weather",
+    "question": "¿Qué tiempo hará mañana en Ciudad de México?",
+    "expected_facts": [
+      [
+        "no puedo",
+        "no dispongo",
+        "no tengo acceso",
+        "no está disponible",
+        "no cuento con herramientas",
+        "no tengo herramientas",
+        "no tengo información meteorológica",
+        "no tengo información",
+        "no está incluida en los datos",
+        "no tengo la capacidad de consultar el tiempo meteorológico"
+      ]
+    ],
+    "forbidden_facts": [
+      "la temperatura será",
+      "probabilidad de lluvia",
+      "mañana hará sol"
+    ]
+  },
+  {
+    "id": "no_invented_cause",
+    "question": "Analiza las ventas de PROD-001 de los dos últimos meses. ¿La caída fue causada por un competidor que lanzó un producto más barato?",
+    "expected_facts": [
+  ["10000", "10.000"],
+  ["6000", "6.000"],
+  [
+    "no se puede determinar la causa",
+    "no puedo determinar la causa",
+    "no hay evidencia suficiente",
+    "los datos no permiten identificar la causa",
+    "no puedo determinar si",
+    "no se puede determinar con la evidencia disponible"
+  ]
+],
+"forbidden_facts": [
+  "la caída podría ser causada por un competidor",
+  "podría deberse a un competidor",
+  "el competidor podría ser responsable",
+  "el producto más barato podría haber causado la caída"
+]
+  }
+]
