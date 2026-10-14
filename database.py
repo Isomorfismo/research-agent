@@ -88,6 +88,8 @@ def get_inventory_status(product_id: str = "PROD-001") -> dict:
         "available_units": available,
         "minimum_required_units": minimum,
         "stock_status": (
-            "above_minimum" if available >= minimum else "below_minimum"
+            "above_minimum" if available > minimum
+            else "below_minimum" if available < minimum
+            else "at_minimum"
         ),
     }

@@ -227,3 +227,93 @@ def test_run_agent_executes_required_tools_if_model_omits_them(monkeypatch):
     assert "6,000" in answer
     assert "120" in answer
     assert "100" in answer
+
+
+def test_build_verified_answer_reports_sales_tool_error():
+    from agent import build_verified_answer
+
+    answer = build_verified_answer(
+        "Analiza las ventas de PROD-001",
+        {
+            "get_sales_summary": {"error": "Tool execution failed"}
+        },
+    )
+
+    assert "no se pudieron verificar" in answer
+    assert "No se presentan cifras de ventas" in answer
+
+
+def test_build_verified_answer_reports_inventory_tool_error():
+    from agent import build_verified_answer
+
+    answer = build_verified_answer(
+        "Consulta el inventario de PROD-001",
+        {
+            "get_inventory_status": {"error": "Tool execution failed"}
+        },
+    )
+
+    assert "no se pudo verificar" in answer
+    assert "falló la herramienta" in answer
+
+
+def test_build_verified_answer_handles_missing_tool_results():
+    from agent import build_verified_answer
+
+    answer = build_verified_answer(
+        "Analiza las ventas de PROD-001",
+        {},
+    )
+
+    assert answer == "No se obtuvieron resultados válidos de las herramientas."
+
+
+def test_execute_tool_rejects_unknown_tool():
+    from agent import execute_tool
+
+    result = execute_tool("unknown_tool", {})
+
+    assert "error" in result
+    assert "Unknown tool" in result["error"]
+
+
+def test_execute_tool_rejects_non_dictionary_arguments():
+    from agent import execute_tool
+
+    result = execute_tool("get_sales_summary", [])
+
+    assert "error" in result
+    assert result["error"] == "Tool arguments must be a dictionary"
+
+def test_build_verified_answer_handles_incomplete_sales_result():
+    from agent import build_verified_answer
+
+    answer = build_verified_answer(
+        "Analiza las ventas de PROD-001",
+        {
+            "get_sales_summary": {
+                "product_id": "PROD-001",
+                "start_month": "2026-08",
+            }
+        },
+    )
+
+    assert "no se pudieron verificar" in answer
+    assert "No se presentan cifras de ventas" in answer
+
+
+def test_build_verified_answer_handles_incomplete_inventory_result():
+    from agent import build_verified_answer
+
+    answer = build_verified_answer(
+        "Consulta el inventario de PROD-001",
+        {
+            "get_inventory_status": {
+                "product_id": "PROD-001",
+                "available_units": 120,
+            }
+        },
+    )
+
+    assert "no se pudo verificar" in answer
+    assert "falló la herramienta" in answer

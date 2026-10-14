@@ -3,6 +3,8 @@ from ollama import chat
 from database import get_sales_summary, get_inventory_status
 import json
 import re
+from typing import Any, TypedDict
+from langgraph.graph import StateGraph, START, END
 
 # MODEL = "qwen3:4b"
 MODEL = "qwen2.5:3b-instruct"
@@ -41,16 +43,99 @@ def get_required_tools(question: str) -> list[str]:
 
     return required
 
+
+def is_valid_sales_result(data: dict) -> bool:
+    """Check sales result fields and basic numeric consistency."""
+    required = {
+        "product_id",
+        "start_month",
+        "start_sales",
+        "end_month",
+        "end_sales",
+        "change_percent",
+    }
+
+    if not isinstance(data, dict) or not required.issubset(data):
+        return False
+
+    if not isinstance(data["product_id"], str) or not data["product_id"].strip():
+        return False
+
+    for field in ("start_month", "end_month"):
+        if not isinstance(data[field], str) or not data[field].strip():
+            return False
+
+    for field in ("start_sales", "end_sales"):
+        value = data[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return False
+
+    start = data["start_sales"]
+    end = data["end_sales"]
+    change = data["change_percent"]
+
+    if start == 0:
+        return change is None
+
+    if isinstance(change, bool) or not isinstance(change, (int, float)):
+        return False
+
+    expected = round((end - start) / start * 100, 2)
+    return abs(change - expected) < 0.011
+
+
+def is_valid_inventory_result(data: dict) -> bool:
+    """Check inventory fields and consistency of stock status."""
+    required = {
+        "product_id",
+        "available_units",
+        "minimum_required_units",
+        "stock_status",
+    }
+
+    if not isinstance(data, dict) or not required.issubset(data):
+        return False
+
+    if not isinstance(data["product_id"], str) or not data["product_id"].strip():
+        return False
+
+    available = data["available_units"]
+    minimum = data["minimum_required_units"]
+
+    for value in (available, minimum):
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return False
+
+    expected_status = (
+        "above_minimum" if available > minimum
+        else "below_minimum" if available < minimum
+        else "at_minimum"
+    )
+
+    return data["stock_status"] == expected_status
+
+
 def build_verified_answer(
     question: str,
     tool_results: dict,
 ) -> str:
-    """Build a report directly from verified tool results."""
+    """Build a report using only complete, verified tool results."""
     sections = []
 
     sales = tool_results.get("get_sales_summary")
-    if sales and "error" not in sales:
+
+    if isinstance(sales, dict) and (
+        "error" in sales
+        or (sales and not is_valid_sales_result(sales))
+    ):
+        sections.append(
+            "Ventas: no se pudieron verificar los datos porque la "
+            "herramienta falló o devolvió un resultado inválido "
+            "o incompleto. No se presentan cifras de ventas."
+        )
+    elif isinstance(sales, dict) and sales:
         change = sales["change_percent"]
+
         direction = (
             "aumento" if change > 0
             else "disminución" if change < 0
@@ -63,17 +148,37 @@ def build_verified_answer(
             f"{sales['start_sales']:,} unidades.\n"
             f"- Mes final: {sales['end_month']}: "
             f"{sales['end_sales']:,} unidades.\n"
-            f"- Variación: {change:+.2f}% "
-            f"({direction})."
+            f"- Variación: {change:+.2f}% ({direction})."
+            if change is not None
+            else (
+                f"Ventas de {sales['product_id']}:\n"
+                f"- Mes inicial: {sales['start_month']}: "
+                f"{sales['start_sales']:,} unidades.\n"
+                f"- Mes final: {sales['end_month']}: "
+                f"{sales['end_sales']:,} unidades.\n"
+                "- Variación: no calculable porque las ventas "
+                "iniciales son cero."
+            )
         )
 
     inventory = tool_results.get("get_inventory_status")
-    if inventory and "error" not in inventory:
+
+    if isinstance(inventory, dict) and (
+        "error" in inventory
+        or (inventory and not is_valid_inventory_result(inventory))
+    ):
+        sections.append(
+            "Inventario: no se pudo verificar el estado del stock "
+            "porque falló la herramienta o devolvió un resultado "
+            "inválido o incompleto."
+        )
+
+    elif isinstance(inventory, dict) and inventory:
         status = {
             "above_minimum": "por encima del mínimo",
             "below_minimum": "por debajo del mínimo",
             "at_minimum": "exactamente en el mínimo",
-        }.get(inventory["stock_status"], "no determinado")
+        }[inventory["stock_status"]]
 
         sections.append(
             f"Inventario de {inventory['product_id']}:\n"
@@ -84,8 +189,9 @@ def build_verified_answer(
 
     causal_terms = (
         "causa", "causada", "causado", "competidor",
-        "por qué", "debido a", "razón"
+        "por qué", "debido a", "razón",
     )
+
     if any(term in question.lower() for term in causal_terms):
         sections.append(
             "Causa de la variación: no se puede determinar "
@@ -99,6 +205,25 @@ def build_verified_answer(
 
     return "\n\n".join(sections)
 
+
+# def execute_tool(name: str, arguments: dict) -> dict:
+#     """Execute a registered tool with validated arguments."""
+#     tool = available_tools.get(name)
+
+#     if tool is None:
+#         return {"error": f"Unknown tool: {name}"}
+
+#     if not isinstance(arguments, dict):
+#         return {"error": "Tool arguments must be a dictionary"}
+
+#     try:
+#         return tool(**arguments)
+#     except TypeError:
+#         return {"error": f"Invalid arguments for tool: {name}"}
+#     except Exception:
+#         # No expose internal details to the model or user.
+#         return {"error": f"Tool execution failed: {name}"}
+
 def execute_tool(name: str, arguments: dict) -> dict:
     """Execute a registered tool with validated arguments."""
     tool = available_tools.get(name)
@@ -109,218 +234,291 @@ def execute_tool(name: str, arguments: dict) -> dict:
     if not isinstance(arguments, dict):
         return {"error": "Tool arguments must be a dictionary"}
 
+    if name == "get_sales_summary":
+        if "months" in arguments:
+            try:
+                arguments["months"] = int(arguments["months"])
+            except (ValueError, TypeError):
+                pass
+
     try:
         return tool(**arguments)
-    except TypeError:
-        return {"error": f"Invalid arguments for tool: {name}"}
-    except Exception:
-        # No expose internal details to the model or user.
-        return {"error": f"Tool execution failed: {name}"}
+    except Exception as e:
+        return {"error": str(e)}
 
+
+
+class AgentState(TypedDict, total=False):
+    question: str
+    messages: list[Any]
+    required_tools: list[str]
+    executed_tools: list[str]
+    tool_results: dict[str, dict]
+    iterations: int
+    tool_calls: list[Any]
+    model_content: str
+    answer: str
+
+
+SYSTEM_PROMPT = (
+    "Eres un agente de análisis de datos empresariales. "
+    "Responde siempre en español y de forma concisa. "
+    "Utiliza las herramientas disponibles para consultar ventas e inventario. "
+    "Para ventas, incluye los meses inicial y final, las unidades vendidas "
+    "y el porcentaje de variación. Para inventario, incluye las unidades "
+    "disponibles, el mínimo requerido y el estado del stock. "
+    "Utiliza los resultados de las herramientas como fuente de verdad. "
+    "No inventes datos ni causas sin evidencia. "
+    "Si una causa no puede determinarse, explica qué información falta. "
+    "Si una pregunta está fuera del alcance de las herramientas, "
+    "explica esa limitación sin fingir que consultaste fuentes externas."
+)
+
+
+def model_node(state: AgentState) -> dict:
+    """Ask the local model to answer or request a tool."""
+    executed = set(state.get("executed_tools", []))
+    required = set(state.get("required_tools", []))
+
+    # If all required tools have run, use the verified report.
+    if required and required.issubset(executed):
+        return {
+            "answer": build_verified_answer(
+                state["question"],
+                state.get("tool_results", {}),
+            ),
+            "tool_calls": [],
+        }
+
+    if state.get("iterations", 0) >= MAX_ITERATIONS:
+        return {
+            "answer": (
+                f"No se obtuvo una respuesta final dentro del límite "
+                f"de {MAX_ITERATIONS} iteraciones."
+            ),
+            "tool_calls": [],
+        }
+
+    response = chat(
+        model=MODEL,
+        messages=state["messages"],
+        tools=tools,
+        options={
+            "num_predict": 256,
+            "temperature": 0.1,
+        },
+    )
+
+    message = response.message
+    calls = message.tool_calls or []
+
+    return {
+        "messages": state["messages"] + [message],
+        "iterations": state.get("iterations", 0) + 1,
+        "tool_calls": calls,
+        "model_content": (message.content or "").strip(),
+    }
+
+
+def route_after_model(state: AgentState) -> str:
+    """Choose the next graph node."""
+    if state.get("answer"):
+        return "end"
+
+    if state.get("tool_calls"):
+        return "execute_tools"
+
+    missing = (
+        set(state.get("required_tools", []))
+        - set(state.get("executed_tools", []))
+    )
+
+    if missing:
+        return "recover_missing"
+
+    return "finalize"
+
+
+def execute_tools_node(state: AgentState) -> dict:
+    """Execute requested tools and add their results to the conversation."""
+    executed = list(state.get("executed_tools", []))
+    results = dict(state.get("tool_results", {}))
+    messages = list(state["messages"])
+
+    for call in state.get("tool_calls", []):
+        name = call.function.name
+        arguments = call.function.arguments or {}
+
+        result = execute_tool(name, arguments)
+
+        # Retain the error result for the final verification step.
+        results[name] = result
+        if name not in executed:
+            executed.append(name)
+
+        messages.append({
+            "role": "tool",
+            "tool_name": name,
+            "content": json.dumps(result, ensure_ascii=False),
+        })
+
+    return {
+        "messages": messages,
+        "executed_tools": executed,
+        "tool_results": results,
+        "tool_calls": [],
+    }
+
+
+def recover_missing_tools_node(state: AgentState) -> dict:
+    """Execute required tools omitted by the model."""
+    question = state["question"]
+    missing = (
+        set(state.get("required_tools", []))
+        - set(state.get("executed_tools", []))
+    )
+
+    executed = list(state.get("executed_tools", []))
+    results = dict(state.get("tool_results", {}))
+    messages = list(state["messages"])
+
+    match = re.search(r"\bPROD-\d+\b", question, re.IGNORECASE)
+
+    if not match:
+        missing_name = sorted(missing)[0]
+        label = (
+            "sus ventas"
+            if missing_name == "get_sales_summary"
+            else "su inventario"
+        )
+        return {
+            "answer": (
+                f"Necesito el identificador del producto para consultar {label}."
+            ),
+        }
+
+    product_id = match.group(0).upper()
+
+    for name in sorted(missing):
+        if name == "get_sales_summary":
+            arguments = {"product_id": product_id, "months": 2}
+        elif name == "get_inventory_status":
+            arguments = {"product_id": product_id}
+        else:
+            continue
+
+        result = execute_tool(name, arguments)
+        results[name] = result
+
+        if name not in executed:
+            executed.append(name)
+
+        messages.append({
+            "role": "tool",
+            "tool_name": name,
+            "content": json.dumps(result, ensure_ascii=False),
+        })
+
+    return {
+        "messages": messages,
+        "executed_tools": executed,
+        "tool_results": results,
+    }
+
+
+def route_after_recovery(state: AgentState) -> str:
+    return "end" if state.get("answer") else "model"
+
+
+def finalize_node(state: AgentState) -> dict:
+    """Return a grounded answer for data questions or the model response."""
+    required = state.get("required_tools", [])
+
+    if required:
+        answer = build_verified_answer(
+            state["question"],
+            state.get("tool_results", {}),
+        )
+    else:
+        answer = state.get("model_content", "")
+
+    if not answer:
+        answer = (
+            "No se pudo generar una respuesta final. "
+            "Intenta de nuevo o revisa los límites de generación."
+        )
+
+    return {"answer": answer}
+
+
+def build_graph():
+    graph = StateGraph(AgentState)
+
+    graph.add_node("model", model_node)
+    graph.add_node("execute_tools", execute_tools_node)
+    graph.add_node("recover_missing", recover_missing_tools_node)
+    graph.add_node("finalize", finalize_node)
+
+    graph.add_edge(START, "model")
+
+    graph.add_conditional_edges(
+        "model",
+        route_after_model,
+        {
+            "execute_tools": "execute_tools",
+            "recover_missing": "recover_missing",
+            "finalize": "finalize",
+            "end": END,
+        },
+    )
+
+    graph.add_edge("execute_tools", "model")
+
+    graph.add_conditional_edges(
+        "recover_missing",
+        route_after_recovery,
+        {
+            "model": "model",
+            "end": END,
+        },
+    )
+
+    graph.add_edge("finalize", END)
+
+    return graph.compile()
+
+
+agent_graph = build_graph()
 
 
 def run_agent(question: str) -> str:
+    """Run the agent through the LangGraph workflow."""
+    if not isinstance(question, str) or not question.strip():
+        return "La pregunta debe ser un texto no vacío."
+
+    initial_state: AgentState = {
+        "question": question,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ],
+        "required_tools": get_required_tools(question),
+        "executed_tools": [],
+        "tool_results": {},
+        "iterations": 0,
+        "tool_calls": [],
+        "model_content": "",
+        "answer": "",
+    }
 
     print(f"\n[INFO] Usando el modelo: {MODEL}")
-    
-    messages = [
-                {
-            "role": "system",
-            "content": (
-                "Eres un agente de análisis de datos empresariales. "
-                "Responde siempre en español y de forma concisa. "
-                "Utiliza las herramientas disponibles para consultar ventas e inventario. "
-                "Para ventas, incluye el mes inicial, las unidades vendidas, "
-                "el mes final, las unidades vendidas y el porcentaje de variación. "
-                "Para inventario, incluye las unidades disponibles, el mínimo requerido "
-                "y si el stock está por encima, igual o por debajo del mínimo. "
-                "Incluye todos los resultados relevantes devueltos por las herramientas; "
-                "no omitas datos porque se hayan consultado en iteraciones diferentes. "
-                "Responde solo con datos verificados o cálculos directos basados en ellos. "
-                "No inventes causas ni propongas explicaciones sin evidencia. "
-                "Si preguntan por una causa que no puede determinarse con los datos "
-                "disponibles, indícalo explícitamente y menciona qué información falta. "
-                "Si una pregunta está fuera del alcance de las herramientas, "
-                "explica esa limitación sin fingir que has consultado fuentes externas."
-        ),
-        },
-        {"role": "user", "content": question},
-    ]
+    final_state = agent_graph.invoke(initial_state)
 
-    total_start_time = time.perf_counter()  # Start global timer
+    answer = final_state.get("answer", "")
+    print("Respuesta final:")
+    print(answer)
 
-    required_tools = get_required_tools(question)
-    executed_tools = set()
-    tool_results = {}
-
-    for iteration in range(MAX_ITERATIONS):
-
-
-        iter_start_time = time.perf_counter()  # Start iteration timer
-        print(f"\n--- [Iteración {iteration + 1} / {MAX_ITERATIONS}] ---")
-        print("Pensando...")
-
-        model_start_time = time.perf_counter()
-
-        if required_tools and set(required_tools).issubset(executed_tools):
-            answer = build_verified_answer(question, tool_results)
-            print("Respuesta verificada por herramientas:")
-            print(answer)
-            return answer
-
-        response = chat(
-            model=MODEL,
-            messages=messages,
-            tools=tools,
-            # think=False,
-            options={
-                "num_predict": 256,
-                "temperature": 0.1,
-            },
-        )
-
-        print("Motivo:", response.done_reason)
-        print("Tokens de entrada:", response.prompt_eval_count)
-        print("Tokens generados:", response.eval_count)
-        print("Duración total (s):", response.total_duration / 1e9)
-
-        print("Respuesta del modelo:", repr(response.message.content))
-        print("Llamadas a herramientas:", response.message.tool_calls)
-        print("Motivo de finalización:", response.done_reason)
-
-
-        model_duration = time.perf_counter() - model_start_time
-        print(f"Tiempo de inferencia del modelo: {model_duration:.2f} s")
-
-        if response.message.content:
-            print(f"Modelo dice: {response.message.content}")
-
-        if response.message.tool_calls:
-            print(f"Llamadas a herramientas: {len(response.message.tool_calls)}")
-
-        messages.append(response.message)
-        tool_calls = response.message.tool_calls or []
-
-
-
-
-        if not tool_calls:
-
-            missing_tools = set(required_tools) - executed_tools
-
-            if missing_tools:
-                print(f"Faltan herramientas requeridas: {sorted(missing_tools)}")
-
-                for name in sorted(missing_tools):
-                    if name == "get_sales_summary":
-                        match = re.search(r"\bPROD-\d+\b", question, re.IGNORECASE)
-
-                        if not match:
-                            return (
-                                "Necesito el identificador del producto "
-                                "para consultar sus ventas."
-                            )
-
-                        arguments = {
-                            "product_id": match.group(0).upper(),
-                            "months": 2,
-                        }
-
-                    elif name == "get_inventory_status":
-                        match = re.search(r"\bPROD-\d+\b", question, re.IGNORECASE)
-
-                        if not match:
-                            return (
-                                "Necesito el identificador del producto "
-                                "para consultar su inventario."
-                            )
-
-                        arguments = {"product_id": match.group(0).upper()}
-
-                    else:
-                        continue
-
-                    result = execute_tool(name, arguments)
-                    executed_tools.add(name)
-                    tool_results[name] = result
-
-                    messages.append({
-                        "role": "tool",
-                        "tool_name": name,
-                        "content": json.dumps(result, ensure_ascii=False),
-                    })
-
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        "Ya se han consultado las herramientas requeridas. "
-                        "Redacta ahora una única respuesta en español que incluya "
-                        "todos los resultados relevantes de las herramientas, "
-                        "sin omitir cifras y sin inventar causas. "
-                        "Resultados verificados: "
-                        + json.dumps(tool_results, ensure_ascii=False)
-                    ),
-                })
-
-                continue
-
-            if required_tools:
-                answer = build_verified_answer(
-                    question,
-                    tool_results,
-                )
-            else:
-                answer = (response.message.content or "").strip()
-
-            if not answer:
-                print("Error: el modelo terminó sin respuesta final.")
-                return (
-                    "No se pudo generar una respuesta final. "
-                    "Intenta de nuevo o revisa los límites de generación."
-                )
-
-            elapsed = time.perf_counter() - total_start_time
-            print(
-                f"El agente ha finalizado. "
-                f"Tiempo total: {elapsed:.2f} segundos."
-            )
-            return answer
-
-
-
-
-
-        
-
-        for call in tool_calls:
-            name = call.function.name
-            arguments = call.function.arguments or {}
-            
-            print(f"-> Ejecutando herramienta: {name}")
-            print(f"   Argumentos: {arguments}")
-            
-            tool_start_time = time.perf_counter()
-            result = execute_tool(name, arguments)
-            executed_tools.add(name)
-            tool_results[name] = result
-            tool_duration = time.perf_counter() - tool_start_time
-
-            print(f"<- Resultado obtenido (en {tool_duration:.4f}s): {result}")
-
-            messages.append({
-                "role": "tool",
-                "tool_name": name,
-                "content": str(result),
-            })
-
-        iter_duration = time.perf_counter() - iter_start_time
-        print(f"Tiempo de la iteración {iteration + 1}: {iter_duration:.2f} segundos.")
-
-    total_duration = time.perf_counter() - total_start_time
-    return (
-        f"No se obtuvo una respuesta final dentro del límite "
-        f"de {MAX_ITERATIONS} iteraciones. (Tiempo transcurrido: {total_duration:.2f}s)"
-    )
+    return answer
 
 
 if __name__ == "__main__":
@@ -331,4 +529,4 @@ if __name__ == "__main__":
     )
 
     print("\nIniciando agente...")
-    print(run_agent(question))
+    run_agent(question)

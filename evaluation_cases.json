@@ -77,7 +77,8 @@
         "no tengo información meteorológica",
         "no tengo información",
         "no está incluida en los datos",
-        "no tengo la capacidad de consultar el tiempo meteorológico"
+        "no tengo la capacidad de consultar el tiempo meteorológico",
+        "no tengo la capacidad de consultar el clima"
       ]
     ],
     "forbidden_facts": [
