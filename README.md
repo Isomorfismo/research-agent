@@ -1,9 +1,9 @@
 # Enterprise Business Intelligence Research Agent
-
+<!--
 [![Build](https://github.com/Isomorfismo/research-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Isomorfismo/research-agent/actions)
 [![Coverage](https://codecov.io/gh/Isomorfismo/research-agent/branch/main/graph/badge.svg)](https://codecov.io/gh/Isomorfismo/research-agent)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
+-->
 Agente inteligente especializado en el análisis automatizado de datos empresariales de ventas e inventario. Está desarrollado con Python 3.12+, LangGraph, Ollama y SQLite, y utiliza `uv` para la gestión del entorno y las dependencias.
 
 El proyecto prioriza la robustez, la validación determinista de datos y la ejecución local mediante modelos de lenguaje. Su objetivo es generar respuestas fundamentadas en datos verificables, reduciendo el riesgo de alucinaciones y evitando afirmaciones sin evidencia.
