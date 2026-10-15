@@ -173,23 +173,21 @@ Esta evaluación está destinada a comprobar el comportamiento del agente ante e
 
 📁 Estructura del proyecto
 
-```mermaid
-flowchart TD
-    RA[research-agent/] --> agent[agent.py]
-    RA --> db[database.py]
-    RA --> cli[cli.py]
-    RA --> setup[setup_db.py]
-    RA --> eval[evaluate_agent.py]
-    RA --> cases[evaluation_cases.json]
-    RA --> tests[tests/]
-    RA --> pyproj[pyproject.toml]
-    RA --> lock[uv.lock]
-    RA --> readme[README.md]
-    RA --> rdb[research.db]
+research-agent/
+├── tests/
+│   ├── test_agent.py
+│   └── test_database.py
+├── agent.py
+├── cli.py
+├── database.py
+├── evaluate_agent.py
+├── evaluation_cases.json
+├── pyproject.toml
+├── README.md
+├── research.db
+├── setup_db.py
+└── uv.lock
 
-    tests --> t_agent[test_agent.py]
-    tests --> t_db[test_database.py]
-```
 
 
 
