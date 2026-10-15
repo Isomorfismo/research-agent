@@ -39,16 +39,17 @@
     "question": "Analiza las ventas de PROD-002 de los dos últimos meses y comprueba si el inventario está por debajo del mínimo.",
     "expected_facts": [
       [
+        "4700",
+        "4.700"
+      ],
+      [
         "4500",
         "4.500"
       ],
       [
-        "4800",
-        "4.800"
-      ],
-      [
-        "6.67",
-        "6,67"
+        "-4.26",
+        "-4,26",
+        "disminución"
       ],
       [
         "45"

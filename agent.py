@@ -224,8 +224,9 @@ def build_verified_answer(
 #         # No expose internal details to the model or user.
 #         return {"error": f"Tool execution failed: {name}"}
 
+
 def execute_tool(name: str, arguments: dict) -> dict:
-    """Execute a registered tool with validated arguments."""
+    """Execute a registered tool and return controlled errors."""
     tool = available_tools.get(name)
 
     if tool is None:
@@ -234,18 +235,22 @@ def execute_tool(name: str, arguments: dict) -> dict:
     if not isinstance(arguments, dict):
         return {"error": "Tool arguments must be a dictionary"}
 
-    if name == "get_sales_summary":
-        if "months" in arguments:
-            try:
-                arguments["months"] = int(arguments["months"])
-            except (ValueError, TypeError):
-                pass
+    # Validate the period without silently coercing decimals or booleans.
+    if name == "get_sales_summary" and "months" in arguments:
+        months = arguments["months"]
+
+        if isinstance(months, bool) or not isinstance(months, int):
+            return {
+                "error": "Invalid arguments for tool: get_sales_summary"
+            }
 
     try:
         return tool(**arguments)
-    except Exception as e:
-        return {"error": str(e)}
-
+    except (TypeError, ValueError):
+        return {"error": f"Invalid arguments for tool: {name}"}
+    except Exception:
+        # Do not expose internal exception details.
+        return {"error": f"Tool execution failed: {name}"}
 
 
 class AgentState(TypedDict, total=False):
@@ -346,14 +351,20 @@ def execute_tools_node(state: AgentState) -> dict:
     messages = list(state["messages"])
 
     for call in state.get("tool_calls", []):
-        name = call.function.name
-        arguments = call.function.arguments or {}
+        if not hasattr(call, "function") or not hasattr(call.function, "name"):
+            name = "unknown"
+            result = {"error": "Malformed tool call: missing function or name"}
+        else:
+            name = call.function.name
+            arguments = getattr(call.function, "arguments", {}) or {}
+            if not isinstance(name, str) or not name.strip():
+                name = "unknown"
+                result = {"error": "Malformed tool call: invalid name"}
+            else:
+                result = execute_tool(name, arguments)
 
-        result = execute_tool(name, arguments)
-
-        # Retain the error result for the final verification step.
         results[name] = result
-        if name not in executed:
+        if name not in executed and name != "unknown":
             executed.append(name)
 
         messages.append({

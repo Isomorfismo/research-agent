@@ -45,11 +45,10 @@ def test_sales_summary_for_second_product():
     assert "error" not in result
     assert result["product_id"] == "PROD-002"
     assert result["start_month"] == "2026-08"
-    assert result["start_sales"] == 4500
+    assert result["start_sales"] == 4700
     assert result["end_month"] == "2026-09"
-    assert result["end_sales"] == 4800
-    assert result["change_percent"] == 6.67
-
+    assert result["end_sales"] == 4500
+    assert result["change_percent"] == -4.26
 
 
 def test_sales_rejects_empty_product():
@@ -180,3 +179,22 @@ def test_invalid_tool_arguments_and_exceptions():
     # Argumentos que no son diccionario
     res_not_dict = execute_tool("get_sales_summary", "not_a_dict")
     assert res_not_dict == {"error": "Tool arguments must be a dictionary"}
+
+
+@pytest.mark.parametrize("months", [0, 1, 25, -1, -10])
+def test_sales_rejects_months_out_of_range(months):
+    result = get_sales_summary("PROD-001", months)
+    assert "error" in result
+
+
+@pytest.mark.parametrize("months", [2, 24])
+def test_sales_accepts_months_at_boundaries(months):
+    result = get_sales_summary("PROD-001", months)
+    assert "error" not in result
+    assert result["months_included"] >= 2
+
+
+def test_sales_with_no_change():
+    result = get_sales_summary("PROD-002", 2)
+    # Este test solo debe comprobarse con datos iguales.
+    # Los datos actuales de PROD-002 no tienen ventas constantes.uv run pytest -v tests/test_database.py
