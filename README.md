@@ -1,39 +1,51 @@
 # Enterprise Business Intelligence Research Agent
 
+[![Build](https://github.com/Isomorfismo/research-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Isomorfismo/research-agent/actions)
+[![Coverage](https://codecov.io/gh/Isomorfismo/research-agent/branch/main/graph/badge.svg)](https://codecov.io/gh/Isomorfismo/research-agent)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Agente inteligente especializado en el análisis automatizado de datos empresariales de ventas e inventario. Está desarrollado con Python 3.12+, LangGraph, Ollama y SQLite, y utiliza `uv` para la gestión del entorno y las dependencias.
 
 El proyecto prioriza la robustez, la validación determinista de datos y la ejecución local mediante modelos de lenguaje. Su objetivo es generar respuestas fundamentadas en datos verificables, reduciendo el riesgo de alucinaciones y evitando afirmaciones sin evidencia.
 
-## Descripción general
+---
 
-El agente está diseñado para responder preguntas sobre ventas e inventario a partir de datos locales y verificables. Su flujo de trabajo separa la interpretación del problema por parte del modelo de lenguaje de la ejecución de herramientas y la validación determinista de resultados.
+## English — Enterprise Business Intelligence Research Agent
 
-Esto permite:
+An intelligent agent specialized in automated analysis of business sales and inventory data. Built with Python 3.12+, LangGraph, Ollama and SQLite, and using `uv` for environment and dependency management.
 
-- Consultar ventas por producto y periodo.
-- Revisar el estado del inventario.
-- Validar resultados antes de construir una respuesta final.
-- Detectar preguntas sin evidencia suficiente y responder con prudencia.
-- Mantener la ejecución en entorno local con SQLite y Ollama.
+The project emphasizes robustness, deterministic data validation and local execution using language models. Its goal is to produce answers grounded in verifiable data and to minimize hallucinations.
 
-## Arquitectura del sistema
+## Overview
 
-El agente utiliza LangGraph para gestionar un flujo de ejecución basado en estados. La arquitectura separa la interpretación flexible del modelo de lenguaje de la ejecución de herramientas y la validación de los resultados.
+The agent answers questions about sales and inventory based on local, verifiable data. Its workflow separates the model's interpretation of a question from tool execution and deterministic validation of results.
 
-### Diagrama de flujo
+Capabilities:
+
+- Query sales by product and period.
+- Check inventory status.
+- Validate results before producing a final answer.
+- Detect questions lacking sufficient evidence and respond cautiously.
+- Run locally using SQLite and Ollama.
+
+## Architecture
+
+The agent uses LangGraph to manage a state-based execution flow. The architecture separates the flexible interpretation by the language model from the execution of tools and validation of results.
+
+### Flow diagram
 
 ```mermaid
 flowchart TD
     START([START]) --> MODEL[model]
 
-    MODEL -->|Hay llamadas a herramientas| EXECUTE[execute_tools]
-    MODEL -->|Faltan herramientas obligatorias| RECOVER[recover_missing]
-    MODEL -->|Respuesta disponible| END([END])
-    MODEL -->|Sin herramientas pendientes| FINALIZE[finalize]
+    MODEL -->|Has tool calls| EXECUTE[execute_tools]
+    MODEL -->|Missing required tools| RECOVER[recover_missing]
+    MODEL -->|Response available| END([END])
+    MODEL -->|No pending tools| FINALIZE[finalize]
 
     EXECUTE --> MODEL
-    RECOVER -->|Recuperación sin respuesta final| MODEL
-    RECOVER -->|Respuesta de error o solicitud de datos| END
+    RECOVER -->|Recovered without final response| MODEL
+    RECOVER -->|Error response or data request| END
 
     FINALIZE --> END
 
@@ -45,168 +57,141 @@ flowchart TD
     style FINALIZE fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 ```
 
-### Componentes principales
+### Main components
 
-- `model`: nodo que consulta al modelo de lenguaje, interpreta la pregunta y determina si necesita ejecutar herramientas.
-- `execute_tools`: ejecuta las herramientas solicitadas, valida sus argumentos, controla los errores y registra los resultados.
-- `recover_missing`: identifica herramientas obligatorias que el modelo no ha solicitado e intenta recuperarlas cuando dispone de la información necesaria.
-- `finalize`: prepara la respuesta final cuando no quedan herramientas obligatorias pendientes.
-- `build_verified_answer()`: construye respuestas basadas en resultados validados de ventas e inventario, sin inventar cifras ni atribuir causas que no puedan demostrarse.
-- `END`: representa la finalización del flujo de ejecución.
+- `model`: node that queries the language model, interprets the question and decides whether to execute tools.
+- `execute_tools`: runs requested tools, validates arguments, handles errors and records results.
+- `recover_missing`: identifies mandatory tools the model didn't request and tries to recover them when enough information is available.
+- `finalize`: prepares the final answer when no mandatory tools are pending.
+- `build_verified_answer()`: builds answers from validated sales and inventory results, avoiding invented figures or unproven causal attributions.
 
-El grafo también contempla límites de iteración y rutas de salida para evitar ejecuciones indefinidas.
+The graph includes iteration limits and exit routes to avoid infinite loops.
 
-## Características principales
+## Key features
 
-- Respuestas fundamentadas en datos: las cifras de ventas e inventario proceden de las herramientas de consulta y se validan antes de elaborar la respuesta final.
-- Control de afirmaciones sin evidencia: el agente evita atribuir variaciones de ventas a competidores u otras causas que no pueden demostrarse con los datos disponibles.
-- Validación estricta: comprueba tipos de datos, valores numéricos, campos obligatorios y coherencia de los resultados.
-- Ejecución segura de herramientas: gestiona nombres de herramientas desconocidos, argumentos malformados y errores internos.
-- Recuperación de herramientas omitidas: intenta ejecutar consultas obligatorias que el modelo haya dejado pendientes.
-- Persistencia local: utiliza SQLite para almacenar y consultar los datos empresariales.
-- Modelo de lenguaje local: utiliza Ollama para ejecutar modelos en el entorno local.
-- Pruebas automatizadas: incorpora pruebas para casos normales, entradas inválidas y situaciones límite.
+- Data-grounded answers: sales and inventory figures come from query tools and are validated before being used in the final answer.
+- Evidence-aware responses: the agent avoids attributing changes to competitors or causes not supported by data.
+- Strict validation: checks types, numeric ranges, required fields and result consistency.
+- Safe tool execution: handles unknown tool names, malformed arguments and internal errors.
+- Recovery of omitted tools: attempts to run mandatory queries the model omitted.
+- Local persistence: uses SQLite as the source of truth.
+- Local language model: uses Ollama for local model execution.
+- Automated tests: includes unit tests and edge-case checks.
 
-La arquitectura está diseñada para reducir alucinaciones mediante validación y generación determinista de respuestas. Esto no implica que todas las respuestas del modelo estén libres de error, pero sí que el sistema intente fundamentarlas en evidencia verificable.
+## Technologies
 
-## Tecnologías utilizadas
-
-| Tecnología | Propósito |
+| Technology | Purpose |
 | --- | --- |
-| Python 3.12+ | Lenguaje principal |
-| LangGraph | Orquestación del flujo del agente |
-| Ollama | Ejecución local del modelo de lenguaje |
-| SQLite | Almacenamiento y consulta de datos |
-| uv | Gestión del entorno y dependencias |
-| pytest | Pruebas automatizadas |
-| pytest-cov | Medición de cobertura del código |
+| Python 3.12+ | Primary language |
+| LangGraph | Agent flow orchestration |
+| Ollama | Local LLM execution |
+| SQLite | Data storage and queries |
+| uv | Environment & dependency management |
+| pytest | Automated testing |
+| pytest-cov | Coverage measurement |
 
-## Requisitos previos
+## Prerequisites
 
-Antes de instalar el proyecto, asegúrate de tener:
+- Python 3.12 or newer
+- `uv` installed
+- Ollama installed and available locally
+- Git
 
-- Python 3.12 o superior.
-- `uv` instalado.
-- Ollama instalado y disponible localmente.
-- Git para clonar el repositorio.
+## Installation
 
-## Instalación y configuración
-
-### 1. Clonar el repositorio
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/tu-usuario/research-agent.git
+git clone https://github.com/Isomorfismo/research-agent.git
 cd research-agent
 ```
 
-### 2. Instalar las dependencias
+### 2. Install dependencies
 
 ```bash
 uv sync
 ```
 
-Este comando instala las dependencias declaradas en el proyecto y prepara el entorno gestionado por `uv`.
-
-### 3. Descargar el modelo de Ollama
+### 3. Download the Ollama model
 
 ```bash
 ollama pull qwen2.5:3b-instruct
 ```
 
-Asegúrate de que el nombre del modelo coincida con la configuración utilizada en el código.
+Confirm the model name matches the configuration used by the code. If your setup uses a different model, replace the name above accordingly.
 
-### 4. Inicializar la base de datos
+### 4. Initialize the database
 
-Si el proyecto incluye el script `setup_db.py`, ejecuta:
+If `setup_db.py` is present, run:
 
 ```bash
 uv run python setup_db.py
 ```
 
-Este script inicializa la base de datos SQLite y carga los datos sintéticos e históricos definidos por el proyecto.
+This script initializes the local SQLite database and loads synthetic/historical data used for tests and examples.
 
-## Uso
+## How to run (examples)
 
-### Consultar ventas e inventario
-
-Para solicitar un análisis de ventas y consultar el inventario de un producto:
+### Ask the agent
 
 ```bash
-uv run python cli.py ask "Analiza las ventas de PROD-001 de los dos últimos meses y consulta su inventario."
+uv run python cli.py ask "Analyze sales for PROD-001 in the last 2 months and check its inventory."
 ```
 
-### Evaluar una hipótesis sin evidencia suficiente
+### Direct tool queries
 
-Para comprobar cómo responde el agente ante una pregunta que atribuye variaciones a una causa no demostrada:
-
-```bash
-uv run python cli.py ask "¿La caída de ventas de PROD-001 fue causada por un competidor?"
-```
-
-El agente debe distinguir entre los datos comprobados y las causas que no pueden determinarse con la información disponible.
-
-### Consultar directamente las herramientas
-
-Resumen de ventas de los dos últimos meses:
+Sales summary for the last 2 months:
 
 ```bash
 uv run python cli.py sales --product PROD-001 --months 2
 ```
 
-Estado del inventario de un producto:
+Inventory status for a product:
 
 ```bash
 uv run python cli.py inventory --product PROD-002
 ```
 
-### Ayuda de la CLI
+### CLI help
 
 ```bash
 uv run python cli.py --help
 ```
 
-## Pruebas y evaluación
+## Running locally (virtual environment example)
 
-### Ejecutar las pruebas automatizadas
+1. Create and activate a virtual environment:
 
-Para ejecutar toda la suite:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # on Windows: .venv\Scripts\activate
+```
+
+2. Install `uv` (if not installed globally) and sync project dependencies:
+
+```bash
+python -m pip install --upgrade pip
+pip install uv
+uv sync
+```
+
+3. Initialize DB and pull the model (see steps above), then run the CLI.
+
+## Tests & coverage
+
+Run tests:
 
 ```bash
 uv run pytest -v
 ```
 
-### Medir la cobertura
-
-Para medir la cobertura de `agent.py` y `database.py`:
+Measure coverage for `agent.py` and `database.py`:
 
 ```bash
 uv run pytest --cov=database --cov=agent --cov-report=term-missing
 ```
 
-La opción `term-missing` permite identificar las líneas que todavía no están cubiertas por las pruebas.
-
-### Estado de las pruebas
-
-En la última ejecución compartida durante el desarrollo se obtuvieron estos resultados:
-
-- 86 de 86 pruebas superadas.
-- 99 % de cobertura global.
-- `agent.py`: 99 % de cobertura.
-- `database.py`: 100 % de cobertura.
-
-Estos resultados corresponden a la última ejecución registrada y pueden variar si se modifica el código.
-
-### Ejecutar la evaluación de comportamiento
-
-Si `evaluate_agent.py` está disponible en el repositorio, ejecuta:
-
-```bash
-uv run python evaluate_agent.py
-```
-
-Esta evaluación está destinada a comprobar el comportamiento del agente ante escenarios definidos y casos límite.
-
-## Estructura del proyecto
+## Project structure
 
 ```text
 research-agent/
@@ -226,49 +211,29 @@ research-agent/
 └── .gitignore
 ```
 
-### Descripción de los componentes principales
+## Contributing
 
-- `agent.py`: define el estado, los nodos, el grafo de LangGraph, los validadores y la lógica de ejecución del agente.
-- `database.py`: contiene las consultas y herramientas para recuperar información de ventas e inventario.
-- `cli.py`: proporciona la interfaz de línea de comandos.
-- `setup_db.py`: inicializa la base de datos y carga los datos de prueba.
-- `evaluate_agent.py`: ejecuta evaluaciones automatizadas del comportamiento del agente.
-- `evaluation_cases.json`: contiene los casos de evaluación y sus condiciones esperadas.
-- `tests/`: agrupa las pruebas automatizadas.
-- `pyproject.toml`: declara las dependencias y la configuración del proyecto.
-- `uv.lock`: registra las versiones resueltas de las dependencias.
-- `research.db`: base de datos SQLite local, que no debe versionarse si se ha decidido excluirla del repositorio.
+Contributions are welcome. To contribute:
 
-## Principios de diseño
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/my-change`).
+3. Run tests locally and ensure they pass.
+4. Open a pull request describing your changes.
 
-### Separación de responsabilidades
+Please avoid committing local artifacts such as `research.db` or virtual environment folders.
 
-El modelo de lenguaje interpreta las preguntas y decide qué herramientas necesita. La capa de herramientas recupera los datos y la lógica determinista valida los resultados y construye la respuesta final.
+## .gitignore recommendation
 
-### Datos como fuente de verdad
+Ensure `research.db` and typical Python artifacts are ignored. A sample `.gitignore` is included in the repository.
 
-SQLite es la fuente de datos empresariales de la aplicación. El agente no debe sustituir resultados reales por cifras generadas por el modelo.
+## License
 
-### Validación antes de generar respuestas
+This project is provided under the MIT License (if you choose a different license, update the badge and LICENSE file accordingly).
 
-Los argumentos y resultados de las herramientas deben cumplir condiciones de validación antes de utilizarse en la respuesta final.
+## Privacy & local execution
 
-### Manejo controlado de errores
+The project is designed to run locally with Ollama and SQLite so data and model execution can remain in your environment. Fully offline operation requires the model to be downloaded locally and no external network calls in configuration.
 
-Los errores deben tratarse de manera explícita, evitando que las excepciones internas o los resultados inválidos se conviertan en afirmaciones empresariales.
+## Status
 
-### Desarrollo incremental y verificable
-
-Los cambios se validan mediante pruebas automatizadas para mantener la estabilidad y reducir regresiones.
-
-## Privacidad y ejecución local
-
-El proyecto está diseñado para utilizar Ollama y SQLite localmente. Esta arquitectura permite mantener el procesamiento dentro del entorno propio cuando todos los componentes se ejecutan de forma local.
-
-La ejecución completamente offline depende de que el modelo esté descargado previamente, de que las dependencias estén instaladas y de que la configuración no introduzca llamadas externas.
-
-## Estado del proyecto
-
-El proyecto dispone de herramientas de consulta de ventas e inventario, validación de datos, orquestación con LangGraph y una suite de pruebas automatizadas.
-
-La siguiente etapa de desarrollo puede centrarse en verificar el flujo completo con Ollama, reforzar las pruebas de integración y documentar los resultados obtenidos en ejecuciones reales.
+The project includes tools to query sales and inventory, deterministic validation logic, LangGraph orchestration and automated tests. Next steps may include full integration verification with Ollama, expanded integration tests and publishing example evaluation results.
