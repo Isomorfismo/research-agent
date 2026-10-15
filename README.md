@@ -173,6 +173,7 @@ Esta evaluación está destinada a comprobar el comportamiento del agente ante e
 
 📁 Estructura del proyecto
 
+```text
 research-agent/
 ├── tests/
 │   ├── test_agent.py
@@ -187,8 +188,7 @@ research-agent/
 ├── research.db
 ├── setup_db.py
 └── uv.lock
-
-
+```
 
 
 Descripción de los componentes principales:
