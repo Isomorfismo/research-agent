@@ -42,7 +42,9 @@ END: representa la finalización del flujo de ejecución.
 
 El grafo también contempla límites de iteraciones y rutas de salida para evitar ejecuciones indefinidas.
 
+
 ⚙️ Características principales
+
 Respuestas fundamentadas en datos: las cifras de ventas e inventario proceden de las herramientas de consulta y se someten a validación antes de elaborar la respuesta final.
 Control de afirmaciones sin evidencia: el agente evita atribuir variaciones de ventas a competidores u otras causas cuando los datos disponibles no permiten demostrarlo.
 Validación estricta: comprueba los tipos de datos, los valores numéricos, los campos obligatorios y la coherencia de los resultados.
@@ -52,7 +54,10 @@ Persistencia local: utiliza SQLite para almacenar y consultar los datos empresar
 Modelo de lenguaje local: utiliza Ollama para ejecutar modelos en el entorno local.
 Pruebas automatizadas: incorpora pruebas para los casos normales, los datos inválidos y las situaciones límite.
 La arquitectura está diseñada para reducir las alucinaciones mediante validación y generación determinista de respuestas. Esto no implica que todas las respuestas del modelo estén libres de errores; las afirmaciones deben mantenerse dentro de los límites de la evidencia disponible.
+
+
 🛠️ Tecnologías utilizadas
+
 Tecnología	Propósito
 Python 3.12+	Lenguaje principal
 LangGraph	Orquestación del flujo del agente
@@ -63,6 +68,7 @@ pytest	Pruebas automatizadas
 pytest-cov	Medición de cobertura del código
 
 
+
 📋 Requisitos previos
 
 Antes de instalar el proyecto, asegúrate de tener:
@@ -71,7 +77,10 @@ Python 3.12 o superior.
 uv.
 Ollama instalado y disponible localmente.
 Git para clonar el repositorio.
+
+
 🚀 Instalación y configuración
+
 1. Clonar el repositorio
 
 Sustituye la URL de ejemplo por la URL real de tu repositorio:
@@ -103,7 +112,9 @@ uv run python setup_db.py
 
 Este script inicializa la base de datos SQLite y carga los datos sintéticos e históricos definidos por el proyecto.
 
+
 💻 Uso
+
 Consultar ventas e inventario
 
 Para solicitar un análisis de ventas y consultar el inventario de un producto:
@@ -125,7 +136,7 @@ Resumen de ventas de los dos últimos meses:
 
 uv run python cli.py sales --product PROD-001 --months 2
 
-
+">```
 Estado del inventario de un producto:
 
 uv run python cli.py inventory --product PROD-002
@@ -135,7 +146,9 @@ Los comandos anteriores corresponden a la interfaz descrita por el proyecto. Si 
 
 uv run python cli.py --help
 
+
 🧪 Pruebas y evaluación
+
 Ejecutar las pruebas automatizadas
 
 Para ejecutar toda la suite:
@@ -205,6 +218,7 @@ uv.lock: registra las versiones resueltas de las dependencias.
 research.db: base de datos SQLite local, que no debe versionarse si se ha decidido excluirla del repositorio.
 
 La estructura anterior refleja la organización descrita del proyecto. Comprueba que todos los archivos estén presentes antes de utilizarla como inventario definitivo.
+
 
 🧭 Principios de diseño
 Separación de responsabilidades
