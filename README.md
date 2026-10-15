@@ -9,6 +9,7 @@ El proyecto prioriza la robustez, la validación determinista de datos y la ejec
 El agente utiliza LangGraph para gestionar un flujo de ejecución basado en estados. La arquitectura separa la interpretación flexible del modelo de lenguaje de la ejecución de herramientas y la verificación determinista de los resultados.
 
 Diagrama de flujo
+```mermaid
 flowchart TD
     START([START]) --> MODEL[model]
 
@@ -29,6 +30,7 @@ flowchart TD
     style EXECUTE fill:#fef3c7,stroke:#d97706,color:#78350f
     style RECOVER fill:#fce7f3,stroke:#db2777,color:#831843
     style FINALIZE fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+```
 
 Componentes principales
 model: nodo que consulta al modelo de lenguaje, interpreta la pregunta y determina si necesita ejecutar herramientas.
@@ -59,6 +61,8 @@ SQLite	Almacenamiento y consulta de datos
 uv	Gestión del entorno y las dependencias
 pytest	Pruebas automatizadas
 pytest-cov	Medición de cobertura del código
+
+
 📋 Requisitos previos
 
 Antes de instalar el proyecto, asegúrate de tener:
@@ -168,20 +172,25 @@ uv run python evaluate_agent.py
 Esta evaluación está destinada a comprobar el comportamiento del agente ante escenarios definidos y casos límite.
 
 📁 Estructura del proyecto
-research-agent/
-├── agent.py
-├── database.py
-├── cli.py
-├── setup_db.py
-├── evaluate_agent.py
-├── evaluation_cases.json
-├── tests/
-│   ├── test_agent.py
-│   └── test_database.py
-├── pyproject.toml
-├── uv.lock
-├── README.md
-└── research.db
+
+```mermaid
+flowchart TD
+    RA[research-agent/] --> agent[agent.py]
+    RA --> db[database.py]
+    RA --> cli[cli.py]
+    RA --> setup[setup_db.py]
+    RA --> eval[evaluate_agent.py]
+    RA --> cases[evaluation_cases.json]
+    RA --> tests[tests/]
+    RA --> pyproj[pyproject.toml]
+    RA --> lock[uv.lock]
+    RA --> readme[README.md]
+    RA --> rdb[research.db]
+
+    tests --> t_agent[test_agent.py]
+    tests --> t_db[test_database.py]
+```
+
 
 
 Descripción de los componentes principales:
